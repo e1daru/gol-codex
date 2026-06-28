@@ -47,12 +47,6 @@ http://localhost:3000/admin
 http://YOUR-LAPTOP-IP:3000/admin
 ```
 
-Example:
-
-```text
-http://192.168.1.103:3000/admin
-```
-
 If you later deploy to Vercel, add the production admin URL too.
 
 ## 4. Create `.env.local`
