@@ -12,8 +12,8 @@ Use this guide to run the Interactive Conway Name Wall from any laptop on the sa
 ## 1. Install The App
 
 ```bash
-git clone https://github.com/e1daru/events.git
-cd events
+git clone https://github.com/e1daru/gol-codex.git
+cd gol-codex
 npm install
 ```
 
