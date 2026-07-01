@@ -49,6 +49,11 @@ button:disabled {
   opacity: 0.62;
 }
 
+#next-logo[data-nextjs-dev-tools-button],
+[data-nextjs-dev-tools-button="true"] {
+  display: none !important;
+}
+
 .display-shell {
   position: fixed;
   inset: 0;
