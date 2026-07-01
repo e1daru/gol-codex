@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { getCodexLogoVariant, renderCodexCloudLogo, renderCodexLogo, renderCodexTerminalLogo, renderPixelText } from "@/lib/life/pixel-font";
+import {
+  getCodexLogoVariant,
+  getSpecialPixelArtVariant,
+  renderCodexCloudLogo,
+  renderCodexGoblinIcon,
+  renderCodexLogo,
+  renderCodexTerminalLogo,
+  renderPixelText,
+  renderSpecialPixelArt,
+  renderUnicornIcon
+} from "@/lib/life/pixel-font";
 
 describe("renderPixelText", () => {
   it("renders blocky uppercase text cells", () => {
@@ -33,8 +43,20 @@ describe("renderPixelText", () => {
 
     expect(terminal.width).toBe(terminal.height);
     expect(terminal.cells.length).toBeGreaterThan(100);
-    expect(cloud.width).toBeGreaterThan(cloud.height);
-    expect(cloud.cells.length).toBeGreaterThan(500);
+    expect(cloud.width).toBe(cloud.height);
+    expect(cloud.cells.length).toBeGreaterThan(900);
+  });
+
+  it("renders large Goblin and Unicorn pixel icons", () => {
+    const goblin = renderCodexGoblinIcon(100, 100);
+    const unicorn = renderUnicornIcon(100, 100);
+
+    expect(goblin.height).toBeGreaterThan(50);
+    expect(goblin.cells.length).toBeGreaterThan(140);
+    expect(unicorn.width).toBeGreaterThan(50);
+    expect(unicorn.height).toBeGreaterThan(50);
+    expect(unicorn.width).toBe(unicorn.height);
+    expect(unicorn.cells.length).toBeGreaterThan(1_700);
   });
 
   it("maps Codex trigger text to logo variants", () => {
@@ -45,5 +67,13 @@ describe("renderPixelText", () => {
     expect(getCodexLogoVariant("Codex", () => 0)).toBe("word");
     expect(getCodexLogoVariant("Codex", () => 0.5)).toBe("terminal");
     expect(getCodexLogoVariant("Codex", () => 0.99)).toBe("cloud");
+  });
+
+  it("maps special trigger text to pixel art", () => {
+    expect(getSpecialPixelArtVariant("codex goblin")).toBe("goblin");
+    expect(getSpecialPixelArtVariant("goblin")).toBe("goblin");
+    expect(getSpecialPixelArtVariant("um")).toBe("unicorn");
+    expect(getSpecialPixelArtVariant("Unicorn Mafia")).toBe("unicorn");
+    expect(renderSpecialPixelArt("unicorn mafia", 100, 100)?.cells.length).toBeGreaterThan(1_700);
   });
 });

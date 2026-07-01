@@ -49,6 +49,45 @@ const GLYPHS: Record<string, Glyph> = {
   "Z": ["11111", "00001", "00010", "00100", "01000", "10000", "11111"]
 };
 
+const UM_LOGO_ROWS: Glyph = [
+  "000000000000000000000000000000001111",
+  "000000000000000000000000000000001111",
+  "000000000000000000000000000000001111",
+  "000000000001111111000000000001111111",
+  "0000000000111111110000000000011111000",
+  "0000000000111111110000000000011111000",
+  "000000011111111111111000111111110000",
+  "000000011111111000111100011111110000",
+  "000000011111111000111100011111110000",
+  "000000011111111000111100011111110000",
+  "000111111110000111111111111000000000",
+  "000111111110000111111111111000000000",
+  "000111111110000111111111111000000000",
+  "000111111110000111111111111000000000",
+  "000111110000000000000111100000000000",
+  "000111110000000000000111100000000000",
+  "111111110000000011110001111111110000",
+  "111111110000000011110000001111100000",
+  "111111110000000011110000001111100000",
+  "111111110000000011110000000111111111",
+  "111111110000000000000000000000001111",
+  "111111110000000000000000000000001111",
+  "111111110000000000000000000000001111",
+  "111111110000000000000000000000001111",
+  "111111110000000000000000000000001111",
+  "111111110000000000000000000000001111",
+  "111111110000000011111110000000001111",
+  "111111110000000011111111000000111100",
+  "111111110000000011111111000000111100",
+  "111111100000000111111111111111111111",
+  "111100000000000111100011111111100000",
+  "111100000000000111100011111111100000",
+  "111100000000000111100011111111100000",
+  "000000000000000000111100000000000000",
+  "000000000000000000111100000000000000",
+  "000000000000000000111100000000000000"
+];
+
 export type PixelText = {
   width: number;
   height: number;
@@ -137,8 +176,9 @@ export function renderCodexTerminalLogo(maxWidth: number, maxHeight: number): Pi
 }
 
 export function renderCodexCloudLogo(maxWidth: number, maxHeight: number): PixelText {
-  const width = clamp(Math.min(maxWidth, Math.floor(maxHeight * 1.36), 82), 42, 82);
-  const height = Math.max(30, Math.round(width * 0.7));
+  const size = clamp(Math.min(maxWidth, maxHeight, 78), 42, 78);
+  const width = size;
+  const height = size;
   const filled = new Set<string>();
 
   for (let y = 0; y < height; y += 1) {
@@ -167,6 +207,7 @@ export function renderCodexCloudLogo(maxWidth: number, maxHeight: number): Pixel
 }
 
 export type CodexLogoVariant = "word" | "terminal" | "cloud";
+export type SpecialPixelArtVariant = CodexLogoVariant | "goblin" | "unicorn";
 
 export function renderCodexLogoVariant(variant: CodexLogoVariant, maxWidth: number, maxHeight: number): PixelText {
   if (variant === "terminal") {
@@ -178,6 +219,53 @@ export function renderCodexLogoVariant(variant: CodexLogoVariant, maxWidth: numb
   }
 
   return renderCodexLogo(maxWidth, maxHeight);
+}
+
+export function renderCodexGoblinIcon(maxWidth: number, maxHeight: number): PixelText {
+  const width = clamp(Math.min(maxWidth, Math.floor(maxHeight * 0.86), 70), 36, 70);
+  const height = clamp(Math.min(maxHeight, Math.round(width * 1.18)), 42, 82);
+  const cells = new Set<string>();
+  const line = Math.max(1.1, width * 0.018);
+  const x = (value: number) => value * width;
+  const y = (value: number) => value * height;
+
+  addThickLine(cells, x(0.5), y(0.03), x(0.34), y(0.29), line);
+  addThickLine(cells, x(0.5), y(0.03), x(0.66), y(0.29), line);
+  addThickLine(cells, x(0.39), y(0.2), x(0.5), y(0.07), line);
+  addThickLine(cells, x(0.61), y(0.2), x(0.5), y(0.07), line);
+  addThickLine(cells, x(0.28), y(0.29), x(0.72), y(0.29), line);
+
+  addThickLine(cells, x(0.36), y(0.33), x(0.64), y(0.33), line);
+  addThickLine(cells, x(0.36), y(0.33), x(0.34), y(0.54), line);
+  addThickLine(cells, x(0.64), y(0.33), x(0.66), y(0.54), line);
+  addThickLine(cells, x(0.34), y(0.54), x(0.5), y(0.62), line);
+  addThickLine(cells, x(0.66), y(0.54), x(0.5), y(0.62), line);
+  addThickLine(cells, x(0.35), y(0.39), x(0.16), y(0.32), line);
+  addThickLine(cells, x(0.16), y(0.32), x(0.28), y(0.51), line);
+  addThickLine(cells, x(0.65), y(0.39), x(0.84), y(0.32), line);
+  addThickLine(cells, x(0.84), y(0.32), x(0.72), y(0.51), line);
+
+  addPixelBlock(cells, Math.round(x(0.43)), Math.round(y(0.44)), 2, 2);
+  addPixelBlock(cells, Math.round(x(0.55)), Math.round(y(0.44)), 2, 2);
+  addPixelBlock(cells, Math.round(x(0.5)), Math.round(y(0.5)), 1, 1);
+  addThickLine(cells, x(0.42), y(0.56), x(0.58), y(0.56), line);
+
+  addThickLine(cells, x(0.33), y(0.64), x(0.08), y(0.92), line);
+  addThickLine(cells, x(0.67), y(0.64), x(0.92), y(0.92), line);
+  addThickLine(cells, x(0.31), y(0.64), x(0.69), y(0.64), line);
+  addThickLine(cells, x(0.5), y(0.66), x(0.39), y(0.93), line);
+  addThickLine(cells, x(0.5), y(0.66), x(0.61), y(0.93), line);
+  addThickLine(cells, x(0.18), y(0.92), x(0.37), y(0.92), line);
+  addThickLine(cells, x(0.63), y(0.92), x(0.82), y(0.92), line);
+  addPixelBlock(cells, Math.round(x(0.43)), Math.round(y(0.98)), 2, 2);
+  addPixelBlock(cells, Math.round(x(0.5)), Math.round(y(0.98)), 2, 2);
+  addPixelBlock(cells, Math.round(x(0.57)), Math.round(y(0.98)), 2, 2);
+
+  return setToPixelText(cells, width, height);
+}
+
+export function renderUnicornIcon(maxWidth: number, maxHeight: number): PixelText {
+  return renderPixelRows(UM_LOGO_ROWS, maxWidth, maxHeight, 2);
 }
 
 export function getCodexLogoVariant(input: string, random = Math.random): CodexLogoVariant | null {
@@ -203,15 +291,83 @@ export function getCodexLogoVariant(input: string, random = Math.random): CodexL
   return null;
 }
 
+export function getSpecialPixelArtVariant(input: string, random = Math.random): SpecialPixelArtVariant | null {
+  const codexVariant = getCodexLogoVariant(input, random);
+
+  if (codexVariant) {
+    return codexVariant;
+  }
+
+  const normalized = input.trim().toLowerCase().replace(/\s+/g, " ");
+
+  if (normalized === "goblin" || normalized === "codex goblin") {
+    return "goblin";
+  }
+
+  if (normalized === "um" || normalized === "unicorn mafia" || normalized === "unicorn") {
+    return "unicorn";
+  }
+
+  return null;
+}
+
+export function renderSpecialPixelArt(input: string, maxWidth: number, maxHeight: number, random = Math.random): PixelText | null {
+  const variant = getSpecialPixelArtVariant(input, random);
+
+  if (!variant) {
+    return null;
+  }
+
+  if (variant === "goblin") {
+    return renderCodexGoblinIcon(maxWidth, maxHeight);
+  }
+
+  if (variant === "unicorn") {
+    return renderUnicornIcon(maxWidth, maxHeight);
+  }
+
+  return renderCodexLogoVariant(variant, maxWidth, maxHeight);
+}
+
 function setToPixelText(cells: Set<string>, width: number, height: number): PixelText {
   return {
     width,
     height,
-    cells: [...cells].map((key) => {
-      const [x, y] = key.split(",").map(Number);
-      return { x, y };
-    })
+    cells: [...cells]
+      .map((key) => {
+        const [x, y] = key.split(",").map(Number);
+        return { x, y };
+      })
+      .filter((cell) => cell.x >= 0 && cell.y >= 0 && cell.x < width && cell.y < height)
   };
+}
+
+function scaleForBounds(width: number, height: number, maxWidth: number, maxHeight: number, maxScale: number): number {
+  return Math.max(1, Math.min(maxScale, Math.floor(maxWidth / width), Math.floor(maxHeight / height)));
+}
+
+function renderPixelRows(rows: Glyph, maxWidth: number, maxHeight: number, maxScale: number): PixelText {
+  const cells = new Set<string>();
+  const width = rows[0]?.length ?? 0;
+  const height = rows.length;
+
+  for (let y = 0; y < rows.length; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if (rows[y]?.[x] === "1") {
+        cells.add(pointKey(x, y));
+      }
+    }
+  }
+
+  return scalePixelText(setToPixelText(cells, width, height), scaleForBounds(width, height, maxWidth, maxHeight, maxScale));
+}
+
+function addPixelBlock(cells: Set<string>, x: number, y: number, width: number, height: number): void {
+  for (let blockY = y; blockY < y + height; blockY += 1) {
+    for (let blockX = x; blockX < x + width; blockX += 1) {
+      cells.add(pointKey(blockX, blockY));
+    }
+  }
 }
 
 function addThickLine(cells: Set<string>, x1: number, y1: number, x2: number, y2: number, radius: number): void {

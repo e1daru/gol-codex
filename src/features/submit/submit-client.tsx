@@ -25,6 +25,7 @@ export function SubmitClient() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const validation = useMemo(() => validateName(name), [name]);
+  const visibleLength = name.trim().length;
 
   useEffect(() => {
     const stored = window.localStorage.getItem(STORAGE_KEY);
@@ -150,21 +151,26 @@ export function SubmitClient() {
         <h1>Join the wall</h1>
 
         <form className="submit-form" onSubmit={onSubmit}>
-          <label htmlFor="name">Name or message</label>
-          <input
-            id="name"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            inputMode="text"
-            maxLength={16}
-            autoComplete="name"
-            placeholder="Ada"
-          />
-          <div className="submit-meta">
-            <span>{name.trim().length}/16</span>
-            {!validation.ok && name ? <span>{validation.reason}</span> : null}
+          <div className="submit-field">
+            <div className="field-topline">
+              <label htmlFor="name">Name or message</label>
+              <span>{visibleLength}/16</span>
+            </div>
+            <input
+              id="name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              inputMode="text"
+              maxLength={16}
+              autoComplete="name"
+              placeholder="Ada"
+              aria-invalid={!validation.ok && name ? true : undefined}
+              aria-describedby="submit-field-message"
+            />
           </div>
-          {error ? <p className="form-error">{error}</p> : null}
+          <p id="submit-field-message" className={error || (!validation.ok && name) ? "form-error" : "field-message"}>
+            {error || (!validation.ok && name ? validation.reason : " ")}
+          </p>
           <button type="submit" className="primary-button" disabled={isSubmitting}>
             <Send size={18} />
             {isSubmitting ? "Sending" : "Submit"}

@@ -253,7 +253,7 @@ export function AdminClient() {
     }
   }
 
-  async function sendCodexLogo(name: "Codex Logo" | "Codex Terminal" | "Codex Cloud", label: string) {
+  async function sendSpecialArt(name: "Codex Logo" | "Codex Terminal" | "Codex Cloud" | "Codex Goblin" | "Unicorn Mafia", label: string) {
     if (!session) {
       return;
     }
@@ -413,23 +413,31 @@ export function AdminClient() {
           <span>Auto-approve public submissions</span>
         </label>
 
-        <div className="codex-actions" aria-label="Codex logo variants">
-          <button type="button" className="codex-button" onClick={() => sendCodexLogo("Codex Logo", "Codex wordmark")} disabled={isSendingName}>
+        <div className="codex-actions" aria-label="Special pixel art">
+          <button type="button" className="codex-button" onClick={() => sendSpecialArt("Codex Logo", "Codex wordmark")} disabled={isSendingName}>
             <Sparkles size={17} />
             Wordmark
           </button>
           <button
             type="button"
             className="codex-button"
-            onClick={() => sendCodexLogo("Codex Terminal", "Codex terminal logo")}
+            onClick={() => sendSpecialArt("Codex Terminal", "Codex terminal logo")}
             disabled={isSendingName}
           >
             <Sparkles size={17} />
             Terminal
           </button>
-          <button type="button" className="codex-button" onClick={() => sendCodexLogo("Codex Cloud", "Codex cloud logo")} disabled={isSendingName}>
+          <button type="button" className="codex-button" onClick={() => sendSpecialArt("Codex Cloud", "Codex cloud logo")} disabled={isSendingName}>
             <Sparkles size={17} />
             Cloud
+          </button>
+          <button type="button" className="codex-button" onClick={() => sendSpecialArt("Codex Goblin", "Codex goblin")} disabled={isSendingName}>
+            <Sparkles size={17} />
+            Goblin
+          </button>
+          <button type="button" className="codex-button" onClick={() => sendSpecialArt("Unicorn Mafia", "Unicorn")} disabled={isSendingName}>
+            <Sparkles size={17} />
+            Unicorn
           </button>
         </div>
 

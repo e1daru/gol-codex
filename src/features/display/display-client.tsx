@@ -7,12 +7,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { choosePlacement, type Rect } from "@/lib/life/placement";
 import { createGrid, seedRandom, stampCells, stepGrid, type LifeGrid } from "@/lib/life/life";
-import { getCodexLogoVariant, renderCodexLogoVariant, renderPixelText } from "@/lib/life/pixel-font";
+import { renderPixelText, renderSpecialPixelArt } from "@/lib/life/pixel-font";
 import type { DisplaySubmission } from "@/lib/submissions/types";
 
 const CELL_SIZE = 8;
 const DEFAULT_TICK_MS = 100;
 const INTRO_MS = 2600;
+const CELL_COLOR = "#adff3f";
 
 type DisplayClientProps = {
   submitUrl: string;
@@ -75,7 +76,7 @@ export function DisplayClient({ submitUrl }: DisplayClientProps) {
 
     context.fillStyle = "#000000";
     context.fillRect(0, 0, runtime.canvasWidth, runtime.canvasHeight);
-    context.fillStyle = "#eaffd6";
+    context.fillStyle = CELL_COLOR;
 
     for (let y = 0; y < grid.height; y += 1) {
       for (let x = 0; x < grid.width; x += 1) {
@@ -89,7 +90,7 @@ export function DisplayClient({ submitUrl }: DisplayClientProps) {
       const progress = Math.min(1, Math.max(0, (timestamp - pendingText.startedAt) / INTRO_MS));
       const pulse = 0.36 + Math.abs(Math.sin(progress * Math.PI * 6)) * 0.58;
       context.globalAlpha = pulse * (1 - progress * 0.1);
-      context.fillStyle = "#eaffd6";
+      context.fillStyle = CELL_COLOR;
 
       for (const cell of pendingText.cells) {
         context.fillRect((pendingText.x + cell.x) * CELL_SIZE, (pendingText.y + cell.y) * CELL_SIZE, CELL_SIZE - 1, CELL_SIZE - 1);
@@ -136,8 +137,7 @@ export function DisplayClient({ submitUrl }: DisplayClientProps) {
 
       const availableWidth = Math.max(12, runtime.cols - runtime.reserved.width - 6);
       const availableHeight = Math.max(12, runtime.rows - 6);
-      const logoVariant = getCodexLogoVariant(submission.name);
-      const text = logoVariant ? renderCodexLogoVariant(logoVariant, availableWidth, availableHeight) : renderPixelText(submission.name);
+      const text = renderSpecialPixelArt(submission.name, availableWidth, availableHeight) ?? renderPixelText(submission.name);
       const placement = choosePlacement(runtime.cols, runtime.rows, text.width, text.height, [runtime.reserved]);
       seenSubmissionIds.current.add(submission.id);
       pendingTextsRef.current.push({
