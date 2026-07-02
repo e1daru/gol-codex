@@ -1,11 +1,11 @@
 "use client";
 
 import type { RealtimeChannel, Session } from "@supabase/supabase-js";
-import { Check, LogOut, Mail, Pause, Play, RefreshCw, RotateCcw, Send, Sparkles, X } from "lucide-react";
+import { BarChart3, Check, LogOut, Mail, Pause, Play, RefreshCw, RotateCcw, Send, Sparkles, X } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
-import type { AdminSubmission } from "@/lib/submissions/types";
+import type { AdminSubmission, SubmissionAnalytics } from "@/lib/submissions/types";
 import { validateName } from "@/lib/submissions/validation";
 
 type QueueResponse = {
@@ -16,6 +16,21 @@ type QueueResponse = {
 type SettingsResponse = {
   enabled?: boolean;
   error?: string;
+};
+
+type AnalyticsResponse = {
+  analytics?: SubmissionAnalytics;
+  error?: string;
+};
+
+const EMPTY_ANALYTICS: SubmissionAnalytics = {
+  total: 0,
+  approved: 0,
+  pending: 0,
+  rejected: 0,
+  autoApproved: 0,
+  submittedLastHour: 0,
+  latestSubmissionAt: null
 };
 
 type DisplayAction = "pause" | "play" | "reset" | "seed";
@@ -36,6 +51,7 @@ export function AdminClient() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [submissions, setSubmissions] = useState<AdminSubmission[]>([]);
+  const [analytics, setAnalytics] = useState<SubmissionAnalytics>(EMPTY_ANALYTICS);
   const [adminName, setAdminName] = useState("");
   const [speedFps, setSpeedFps] = useState(10);
   const [autoApprove, setAutoApprove] = useState(false);
@@ -69,9 +85,9 @@ export function AdminClient() {
       return;
     }
 
-    refreshQueue();
+    refreshAdminData();
     refreshSettings();
-    const interval = window.setInterval(refreshQueue, 3000);
+    const interval = window.setInterval(refreshAdminData, 3000);
 
     return () => window.clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -96,6 +112,10 @@ export function AdminClient() {
 
     setIsSendingLink(false);
     setMessage(error ? error.message : "Check your email for the admin sign-in link.");
+  }
+
+  async function refreshAdminData() {
+    await Promise.all([refreshQueue(), refreshAnalytics()]);
   }
 
   async function refreshQueue() {
@@ -125,6 +145,31 @@ export function AdminClient() {
       setMessage("Admin API is offline.");
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function refreshAnalytics() {
+    if (!session) {
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/admin/analytics", {
+        headers: {
+          authorization: `Bearer ${session.access_token}`
+        },
+        cache: "no-store"
+      });
+      const payload = (await response.json()) as AnalyticsResponse;
+
+      if (!response.ok) {
+        setMessage(payload.error || "Unable to load analytics.");
+        return;
+      }
+
+      setAnalytics(payload.analytics ?? EMPTY_ANALYTICS);
+    } catch {
+      setMessage("Admin analytics API is offline.");
     }
   }
 
@@ -210,6 +255,7 @@ export function AdminClient() {
     }
 
     setSubmissions((current) => current.filter((submission) => submission.id !== id));
+    void refreshAnalytics();
   }
 
   async function sendApprovedName(event: FormEvent<HTMLFormElement>) {
@@ -247,6 +293,7 @@ export function AdminClient() {
 
       setAdminName("");
       setMessage("Sent to display.");
+      void refreshAdminData();
     } catch {
       setMessage("Admin API is offline.");
     } finally {
@@ -279,6 +326,7 @@ export function AdminClient() {
       }
 
       setMessage(`${label} sent to display.`);
+      void refreshAdminData();
     } catch {
       setMessage("Admin API is offline.");
     } finally {
@@ -355,12 +403,14 @@ export function AdminClient() {
         <header className="admin-header">
           <div>
             <div className="admin-mark">HOST</div>
-            <h1>Approval queue</h1>
+            <h1>Event control</h1>
           </div>
           <button type="button" className="icon-button light" title="Sign out" onClick={() => supabase.auth.signOut()}>
             <LogOut size={18} />
           </button>
         </header>
+
+        <AnalyticsPanel analytics={analytics} autoApprove={autoApprove} />
 
         <div className="admin-controls" aria-label="Display controls">
           <button type="button" className="tool-button" onClick={() => sendDisplayAction("pause")}>
@@ -379,7 +429,7 @@ export function AdminClient() {
             <Sparkles size={17} />
             Seed
           </button>
-          <button type="button" className="tool-button" onClick={refreshQueue} disabled={isLoading}>
+          <button type="button" className="tool-button" onClick={refreshAdminData} disabled={isLoading}>
             <RefreshCw size={17} />
             Refresh
           </button>
@@ -463,7 +513,7 @@ export function AdminClient() {
 
         <div className="queue-list">
           {submissions.length === 0 ? (
-            <div className="empty-queue">No pending names</div>
+            <div className="empty-queue">No names need review</div>
           ) : (
             submissions.map((submission) => (
               <article className="queue-item" key={submission.id}>
@@ -485,6 +535,45 @@ export function AdminClient() {
         </div>
       </section>
     </main>
+  );
+}
+
+function AnalyticsPanel({
+  analytics,
+  autoApprove
+}: {
+  analytics: SubmissionAnalytics;
+  autoApprove: boolean;
+}) {
+  const latestSubmission = analytics.latestSubmissionAt
+    ? new Date(analytics.latestSubmissionAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : "None";
+
+  return (
+    <section className="analytics-panel" aria-label="Submission analytics">
+      <div className="analytics-heading">
+        <BarChart3 size={17} />
+        <span>Analytics</span>
+        <strong>{autoApprove ? "Auto-approve on" : "Manual review on"}</strong>
+      </div>
+      <div className="analytics-grid">
+        <Stat label="Total" value={analytics.total} />
+        <Stat label="Live" value={analytics.approved} />
+        <Stat label="Pending" value={analytics.pending} />
+        <Stat label="Last hour" value={analytics.submittedLastHour} />
+        <Stat label="Auto" value={analytics.autoApproved} />
+        <Stat label="Latest" value={latestSubmission} />
+      </div>
+    </section>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div className="analytics-stat">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
   );
 }
 

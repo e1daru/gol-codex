@@ -122,6 +122,20 @@ export async function listAdminSubmissions(request: Request, deps: AdminApiDeps)
   return jsonResponse({ submissions });
 }
 
+export async function getSubmissionAnalytics(request: Request, deps: AdminApiDeps): Promise<Response> {
+  if (!deps.store) {
+    return errorResponse("Submission service is not configured.", 503);
+  }
+
+  const admin = await deps.assertAdmin(request);
+  if (!admin.ok) {
+    return admin.response;
+  }
+
+  const analytics = await deps.store.getSubmissionAnalytics();
+  return jsonResponse({ analytics });
+}
+
 export async function createAdminApprovedSubmission(request: Request, deps: AdminCreateApiDeps): Promise<Response> {
   if (!deps.store || !deps.tokenSecret) {
     return errorResponse("Submission service is not configured.", 503);

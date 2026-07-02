@@ -439,6 +439,64 @@ h1 {
   margin-top: 22px;
 }
 
+.analytics-panel {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(173, 255, 63, 0.045);
+}
+
+.analytics-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.analytics-heading strong {
+  margin-left: auto;
+  color: var(--cell);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: none;
+  overflow-wrap: anywhere;
+}
+
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.analytics-stat {
+  min-height: 68px;
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid rgba(244, 248, 240, 0.12);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.analytics-stat span {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.analytics-stat strong {
+  color: var(--cell);
+  font-size: clamp(18px, 3vw, 24px);
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+
 .admin-send-form {
   display: grid;
   gap: 10px;
@@ -678,6 +736,19 @@ h1 {
 
   .speed-control div {
     grid-template-columns: 1fr;
+  }
+
+  .analytics-heading {
+    align-items: flex-start;
+  }
+
+  .analytics-heading strong {
+    max-width: 44%;
+    text-align: right;
+  }
+
+  .analytics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .codex-actions {

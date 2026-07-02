@@ -211,8 +211,8 @@ function SubmissionStatusPanel({ submission }: { submission: StoredSubmission })
   const statusCopy = {
     pending: {
       icon: <Clock3 size={20} />,
-      title: "Waiting",
-      text: "In the host queue."
+      title: "Queued",
+      text: "Waiting for host review."
     },
     approved: {
       icon: <CheckCircle2 size={20} />,

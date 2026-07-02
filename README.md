@@ -1,12 +1,12 @@
 # Interactive Conway Name Wall
 
-A public event web app where visitors scan a QR code, submit a name, and a host approves it into a fullscreen Conway's Game of Life display. Approved names are stamped as monochrome pixel text and then evolve under standard B3/S23 rules.
+A public event web app where visitors scan a QR code, submit a name, and it appears in a fullscreen Conway's Game of Life display by default. Names are stamped as monochrome pixel text and then evolve under standard B3/S23 rules, with optional host moderation and admin analytics.
 
 ## Routes
 
 - `/display` - fullscreen Life canvas with QR code and local display controls.
 - `/submit` - mobile-first name submission flow.
-- `/admin` - Supabase Auth sign-in, approval queue, and display controls.
+- `/admin` - Supabase Auth sign-in, analytics, optional approval queue, and display controls.
 
 ## Setup
 

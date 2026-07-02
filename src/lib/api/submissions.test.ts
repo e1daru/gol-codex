@@ -5,6 +5,7 @@ import {
   createAdminApprovedSubmission,
   createSubmission,
   getAutoApproveSetting,
+  getSubmissionAnalytics,
   getSubmissionStatus,
   listAdminSubmissions,
   moderateSubmission,
@@ -22,14 +23,14 @@ const secrets = {
 };
 
 describe("submission API handlers", () => {
-  it("creates a pending submission and lets the submitter poll status", async () => {
+  it("creates an approved submission by default and lets the submitter poll status", async () => {
     const store = new FakeSubmissionStore();
     const deps: SubmissionApiDeps = { store, secrets };
     const createResponse = await createSubmission(jsonRequest("http://test.local/api/submissions", { name: "Ada" }), deps);
     const createPayload = (await createResponse.json()) as { id: string; token: string; status: SubmissionStatus };
 
     expect(createResponse.status).toBe(201);
-    expect(createPayload.status).toBe("pending");
+    expect(createPayload.status).toBe("approved");
 
     const statusResponse = await getSubmissionStatus(
       new Request(`http://test.local/api/submissions/${createPayload.id}?token=${createPayload.token}`),
@@ -41,8 +42,23 @@ describe("submission API handlers", () => {
     await expect(statusResponse.json()).resolves.toMatchObject({
       id: createPayload.id,
       name: "Ada",
-      status: "pending"
+      status: "approved"
     });
+  });
+
+  it("creates pending submissions when auto-approve is disabled", async () => {
+    const store = new FakeSubmissionStore();
+    store.autoApprove = false;
+
+    const response = await createSubmission(jsonRequest("http://test.local/api/submissions", { name: "Ada" }), {
+      store,
+      secrets
+    });
+    const payload = (await response.json()) as { status: SubmissionStatus };
+
+    expect(response.status).toBe(201);
+    expect(payload.status).toBe("pending");
+    await expect(store.listDisplaySubmissions()).resolves.toHaveLength(0);
   });
 
   it("rejects invalid names", async () => {
@@ -148,6 +164,30 @@ describe("admin API handlers", () => {
     await expect(readResponse.json()).resolves.toEqual({ enabled: true });
   });
 
+  it("returns submission analytics for admins", async () => {
+    const store = new FakeSubmissionStore();
+    store.addRecord("Pending", "token");
+    const autoApproved = store.addRecord("Ada", "token");
+    autoApproved.status = "approved";
+    autoApproved.approved_at = new Date("2026-06-22T12:01:00.000Z").toISOString();
+    autoApproved.approved_by = "auto-approve";
+    const rejected = store.addRecord("Grace", "token");
+    rejected.status = "rejected";
+    rejected.rejected_at = new Date("2026-06-22T12:02:00.000Z").toISOString();
+
+    const response = await getSubmissionAnalytics(new Request("http://test.local/api/admin/analytics"), adminDeps(store));
+    const payload = (await response.json()) as { analytics: Awaited<ReturnType<SubmissionStore["getSubmissionAnalytics"]>> };
+
+    expect(response.status).toBe(200);
+    expect(payload.analytics).toMatchObject({
+      total: 3,
+      approved: 1,
+      pending: 1,
+      rejected: 1,
+      autoApproved: 1
+    });
+  });
+
   it("returns unauthorized responses from the admin checker", async () => {
     const store = new FakeSubmissionStore();
     const response = await listAdminSubmissions(new Request("http://test.local/api/admin/submissions"), {
@@ -185,7 +225,7 @@ function adminDeps(store: SubmissionStore): AdminApiDeps {
 
 class FakeSubmissionStore implements SubmissionStore {
   recentCount = 0;
-  autoApprove = false;
+  autoApprove = true;
   private records: SubmissionRecord[] = [];
 
   async countRecentByIpHash(): Promise<number> {
@@ -242,6 +282,21 @@ class FakeSubmissionStore implements SubmissionStore {
         name: record.name,
         approved_at: record.approved_at
       }));
+  }
+
+  async getSubmissionAnalytics() {
+    const submittedLastHourSince = Date.now() - 60 * 60 * 1000;
+    const createdTimes = this.records.map((record) => Date.parse(record.created_at)).filter(Number.isFinite);
+
+    return {
+      total: this.records.length,
+      approved: this.records.filter((record) => record.status === "approved").length,
+      pending: this.records.filter((record) => record.status === "pending").length,
+      rejected: this.records.filter((record) => record.status === "rejected").length,
+      autoApproved: this.records.filter((record) => record.status === "approved" && record.approved_by === "auto-approve").length,
+      submittedLastHour: this.records.filter((record) => Date.parse(record.created_at) >= submittedLastHourSince).length,
+      latestSubmissionAt: createdTimes.length > 0 ? new Date(Math.max(...createdTimes)).toISOString() : null
+    };
   }
 
   async setStatus(id: string, status: "approved" | "rejected", adminEmail: string): Promise<AdminSubmission | null> {

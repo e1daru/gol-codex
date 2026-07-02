@@ -2,10 +2,18 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
-import type { AdminSubmission, DisplaySubmission, PublicSubmission, SubmissionRecord, SubmissionStatus } from "@/lib/submissions/types";
+import type {
+  AdminSubmission,
+  DisplaySubmission,
+  PublicSubmission,
+  SubmissionAnalytics,
+  SubmissionRecord,
+  SubmissionStatus
+} from "@/lib/submissions/types";
 
 const AUTO_APPROVE_SETTING_KEY = "auto_approve_submissions";
-let fallbackAutoApproveSubmissions = false;
+const DEFAULT_AUTO_APPROVE_SUBMISSIONS = true;
+let fallbackAutoApproveSubmissions = DEFAULT_AUTO_APPROVE_SUBMISSIONS;
 
 export type InsertSubmissionInput = {
   name: string;
@@ -28,6 +36,7 @@ export type SubmissionStore = {
   getSubmissionById(id: string): Promise<SubmissionRecord | null>;
   listAdminSubmissions(status?: SubmissionStatus): Promise<AdminSubmission[]>;
   listDisplaySubmissions(): Promise<DisplaySubmission[]>;
+  getSubmissionAnalytics(): Promise<SubmissionAnalytics>;
   setStatus(id: string, status: Exclude<SubmissionStatus, "pending">, adminEmail: string): Promise<AdminSubmission | null>;
   getAutoApproveSubmissions(): Promise<boolean>;
   setAutoApproveSubmissions(enabled: boolean, adminEmail: string): Promise<boolean>;
@@ -152,6 +161,35 @@ class SupabaseSubmissionStore implements SubmissionStore {
     return data ?? [];
   }
 
+  async getSubmissionAnalytics(): Promise<SubmissionAnalytics> {
+    const sinceIso = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const [total, approved, pending, rejected, autoApproved, submittedLastHour, latest] = await Promise.all([
+      this.client.from("submissions").select("id", { count: "exact", head: true }),
+      this.client.from("submissions").select("id", { count: "exact", head: true }).eq("status", "approved"),
+      this.client.from("submissions").select("id", { count: "exact", head: true }).eq("status", "pending"),
+      this.client.from("submissions").select("id", { count: "exact", head: true }).eq("status", "rejected"),
+      this.client.from("submissions").select("id", { count: "exact", head: true }).eq("status", "approved").eq("approved_by", "auto-approve"),
+      this.client.from("submissions").select("id", { count: "exact", head: true }).gte("created_at", sinceIso),
+      this.client.from("submissions").select("created_at").order("created_at", { ascending: false }).limit(1).maybeSingle()
+    ]);
+
+    for (const response of [total, approved, pending, rejected, autoApproved, submittedLastHour, latest]) {
+      if (response.error) {
+        throw response.error;
+      }
+    }
+
+    return {
+      total: total.count ?? 0,
+      approved: approved.count ?? 0,
+      pending: pending.count ?? 0,
+      rejected: rejected.count ?? 0,
+      autoApproved: autoApproved.count ?? 0,
+      submittedLastHour: submittedLastHour.count ?? 0,
+      latestSubmissionAt: latest.data?.created_at ?? null
+    };
+  }
+
   async setStatus(
     id: string,
     status: Exclude<SubmissionStatus, "pending">,
@@ -203,7 +241,7 @@ class SupabaseSubmissionStore implements SubmissionStore {
     }
 
     if (!data) {
-      return false;
+      return fallbackAutoApproveSubmissions;
     }
 
     return isEnabledSetting(data.value);

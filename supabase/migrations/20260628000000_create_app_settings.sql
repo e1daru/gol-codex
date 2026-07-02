@@ -8,5 +8,5 @@ create table if not exists public.app_settings (
 alter table public.app_settings enable row level security;
 
 insert into public.app_settings (key, value)
-values ('auto_approve_submissions', '{"enabled": false}'::jsonb)
+values ('auto_approve_submissions', '{"enabled": true}'::jsonb)
 on conflict (key) do nothing;

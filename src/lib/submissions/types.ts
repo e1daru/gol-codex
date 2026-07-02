@@ -20,3 +20,13 @@ export type AdminSubmission = Pick<
 >;
 
 export type DisplaySubmission = Pick<SubmissionRecord, "id" | "name" | "approved_at">;
+
+export type SubmissionAnalytics = {
+  total: number;
+  approved: number;
+  pending: number;
+  rejected: number;
+  autoApproved: number;
+  submittedLastHour: number;
+  latestSubmissionAt: string | null;
+};

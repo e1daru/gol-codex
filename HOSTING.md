@@ -32,9 +32,10 @@ Open **SQL Editor** and run these migrations in order:
 ```text
 supabase/migrations/20260622000000_create_submissions.sql
 supabase/migrations/20260628000000_create_app_settings.sql
+supabase/migrations/20260703000000_enable_auto_approve_by_default.sql
 ```
 
-The first migration creates the submissions table. The second migration creates the admin setting used by the auto-approve toggle.
+The first migration creates the submissions table. The second migration creates the admin setting used by the auto-approve toggle. The third migration makes public submissions live-by-default.
 
 ## 3. Configure Supabase Auth
 
@@ -113,18 +114,19 @@ If the email arrives on another device, copy the full Supabase confirmation link
 
 After login, the admin can:
 
-- Approve or reject pending submissions.
+- Watch submission analytics.
+- Approve or reject pending submissions if manual review is enabled.
 - Send text directly to the display.
 - Send Codex logo variants.
 - Change display speed.
-- Enable or disable auto-approve.
+- Enable or disable auto-approve. It is enabled by default.
 
 ## 7. Event Checklist
 
 - Laptop and phones are on the same Wi-Fi.
 - `NEXT_PUBLIC_APP_URL` uses the laptop IP, not `localhost`.
 - Supabase Auth redirect URLs include the laptop IP admin URL.
-- Both migrations have been run.
+- All migrations have been run.
 - `/display` shows a QR code with the laptop IP.
 - `/api/display/submissions` returns a JSON response.
 - Admin login works before guests arrive.
@@ -137,4 +139,4 @@ If the QR code has the wrong IP, update `NEXT_PUBLIC_APP_URL` in `.env.local` an
 
 If admin login says the redirect is not allowed, add the exact `/admin` URL to Supabase Auth URL Configuration.
 
-If submissions do not appear on the display, confirm Supabase keys are set, the migrations ran, and the name was either approved or auto-approve is enabled.
+If submissions do not appear on the display, confirm Supabase keys are set, the migrations ran, and auto-approve is enabled or the name was manually approved.
