@@ -22,6 +22,7 @@ type DisplayAction = "pause" | "play" | "reset" | "seed";
 type DisplayControlPayload =
   | {
       action: DisplayAction;
+      seed?: string;
     }
   | {
       action: "speed";
@@ -301,7 +302,7 @@ export function AdminClient() {
   }
 
   async function sendDisplayAction(action: DisplayAction) {
-    await sendDisplayControl({ action });
+    await sendDisplayControl(action === "seed" ? { action, seed: createControlSeed("admin-seed") } : { action });
   }
 
   async function sendSpeed(event: FormEvent<HTMLFormElement>) {
@@ -485,4 +486,8 @@ export function AdminClient() {
       </section>
     </main>
   );
+}
+
+function createControlSeed(prefix: string): string {
+  return `${prefix}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
 }

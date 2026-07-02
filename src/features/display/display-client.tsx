@@ -8,9 +8,15 @@ import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { choosePlacement, type Rect } from "@/lib/life/placement";
 import { createGrid, seedRandom, stampCells, stepGrid, type LifeGrid } from "@/lib/life/life";
 import { renderPixelText, renderSpecialPixelArt } from "@/lib/life/pixel-font";
+import { createSeededRandom } from "@/lib/life/random";
 import type { DisplaySubmission } from "@/lib/submissions/types";
 
-const CELL_SIZE = 8;
+const CELL_SIZE = 4;
+const BOARD_WIDTH = 1920;
+const BOARD_HEIGHT = 1080;
+const BOARD_COLS = Math.floor(BOARD_WIDTH / CELL_SIZE);
+const BOARD_ROWS = Math.floor(BOARD_HEIGHT / CELL_SIZE);
+const BOARD_SEED = "gol-codex-display-v2";
 const DEFAULT_TICK_MS = 100;
 const INTRO_MS = 2600;
 const CELL_COLOR = "#adff3f";
@@ -20,8 +26,14 @@ type DisplayClientProps = {
 };
 
 type BoardRuntime = {
-  canvasWidth: number;
-  canvasHeight: number;
+  viewportWidth: number;
+  viewportHeight: number;
+  pixelRatio: number;
+  boardWidth: number;
+  boardHeight: number;
+  renderScale: number;
+  offsetX: number;
+  offsetY: number;
   cols: number;
   rows: number;
   reserved: Rect;
@@ -30,6 +42,7 @@ type BoardRuntime = {
 type DisplayControlPayload =
   | {
       action: "pause" | "play" | "reset" | "seed";
+      seed?: string;
     }
   | {
       action: "speed";
@@ -41,7 +54,7 @@ type PendingText = {
   cells: Array<{ x: number; y: number }>;
   x: number;
   y: number;
-  startedAt: number;
+  startedAtMs: number;
 };
 
 export function DisplayClient({ submitUrl }: DisplayClientProps) {
@@ -51,6 +64,9 @@ export function DisplayClient({ submitUrl }: DisplayClientProps) {
   const runtimeRef = useRef<BoardRuntime | null>(null);
   const seenSubmissionIds = useRef<Set<string>>(new Set());
   const pendingTextsRef = useRef<PendingText[]>([]);
+  const hasLoadedInitialSubmissionsRef = useRef(false);
+  const displayBootedAtMsRef = useRef(Date.now());
+  const seedKeyRef = useRef(BOARD_SEED);
   const pausedRef = useRef(false);
   const tickMsRef = useRef(DEFAULT_TICK_MS);
 
@@ -59,7 +75,7 @@ export function DisplayClient({ submitUrl }: DisplayClientProps) {
   const [approvedCount, setApprovedCount] = useState(0);
   const [connectionNote, setConnectionNote] = useState<string | null>(null);
 
-  const draw = useCallback((timestamp = performance.now()) => {
+  const draw = useCallback(() => {
     const canvas = canvasRef.current;
     const grid = gridRef.current;
 
@@ -74,8 +90,13 @@ export function DisplayClient({ submitUrl }: DisplayClientProps) {
       return;
     }
 
+    context.setTransform(runtime.pixelRatio, 0, 0, runtime.pixelRatio, 0, 0);
+    context.globalAlpha = 1;
     context.fillStyle = "#000000";
-    context.fillRect(0, 0, runtime.canvasWidth, runtime.canvasHeight);
+    context.fillRect(0, 0, runtime.viewportWidth, runtime.viewportHeight);
+    context.translate(runtime.offsetX, runtime.offsetY);
+    context.scale(runtime.renderScale, runtime.renderScale);
+    context.fillRect(0, 0, runtime.boardWidth, runtime.boardHeight);
     context.fillStyle = CELL_COLOR;
 
     for (let y = 0; y < grid.height; y += 1) {
@@ -86,8 +107,10 @@ export function DisplayClient({ submitUrl }: DisplayClientProps) {
       }
     }
 
+    const nowMs = Date.now();
+
     for (const pendingText of pendingTextsRef.current) {
-      const progress = Math.min(1, Math.max(0, (timestamp - pendingText.startedAt) / INTRO_MS));
+      const progress = Math.min(1, Math.max(0, (nowMs - pendingText.startedAtMs) / INTRO_MS));
       const pulse = 0.36 + Math.abs(Math.sin(progress * Math.PI * 6)) * 0.58;
       context.globalAlpha = pulse * (1 - progress * 0.1);
       context.fillStyle = CELL_COLOR;
@@ -101,7 +124,7 @@ export function DisplayClient({ submitUrl }: DisplayClientProps) {
   }, []);
 
   const resetBoard = useCallback(
-    (seed = true) => {
+    (seed = true, seedKey = seedKeyRef.current) => {
       const runtime = runtimeRef.current;
 
       if (!runtime) {
@@ -112,7 +135,8 @@ export function DisplayClient({ submitUrl }: DisplayClientProps) {
       const buffer = createGrid(runtime.cols, runtime.rows);
 
       if (seed) {
-        seedRandom(grid, 0.075);
+        seedKeyRef.current = seedKey;
+        seedRandom(grid, 0.075, createSeededRandom(`${seedKey}:${runtime.cols}x${runtime.rows}`));
       }
 
       gridRef.current = grid;
@@ -137,17 +161,27 @@ export function DisplayClient({ submitUrl }: DisplayClientProps) {
 
       const availableWidth = Math.max(12, runtime.cols - runtime.reserved.width - 6);
       const availableHeight = Math.max(12, runtime.rows - 6);
-      const text = renderSpecialPixelArt(submission.name, availableWidth, availableHeight) ?? renderPixelText(submission.name);
-      const placement = choosePlacement(runtime.cols, runtime.rows, text.width, text.height, [runtime.reserved]);
+      const submissionSeed = createSubmissionSeed(submission);
+      const text =
+        renderSpecialPixelArt(submission.name, availableWidth, availableHeight, createSeededRandom(`${submissionSeed}:art`)) ??
+        renderPixelText(submission.name);
+      const placement = choosePlacement(
+        runtime.cols,
+        runtime.rows,
+        text.width,
+        text.height,
+        [runtime.reserved],
+        createSeededRandom(`${submissionSeed}:placement`)
+      );
       seenSubmissionIds.current.add(submission.id);
       pendingTextsRef.current.push({
         id: submission.id,
         cells: text.cells,
         x: placement.x,
         y: placement.y,
-        startedAt: performance.now()
+        startedAtMs: getSubmissionIntroStartMs(submission)
       });
-      setApprovedCount(seenSubmissionIds.current.size);
+      setApprovedCount((current) => current + 1);
       draw();
     },
     [draw]
@@ -171,14 +205,13 @@ export function DisplayClient({ submitUrl }: DisplayClientProps) {
 
       if (payload.action === "reset") {
         resetBoard(false);
-        seenSubmissionIds.current.clear();
         pendingTextsRef.current = [];
         setApprovedCount(0);
         return;
       }
 
       if (payload.action === "seed") {
-        resetBoard(true);
+        resetBoard(true, payload.seed ?? createControlSeed("display-seed"));
       }
     },
     [resetBoard]
@@ -192,43 +225,54 @@ export function DisplayClient({ submitUrl }: DisplayClientProps) {
         return;
       }
 
-      const canvasWidth = window.innerWidth;
-      const canvasHeight = window.innerHeight;
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
       const pixelRatio = window.devicePixelRatio || 1;
-      const cols = Math.max(40, Math.floor(canvasWidth / CELL_SIZE));
-      const rows = Math.max(30, Math.floor(canvasHeight / CELL_SIZE));
-      const qrWidthCells = Math.ceil(280 / CELL_SIZE);
-      const qrHeightCells = Math.ceil(250 / CELL_SIZE);
+      const renderScale = Math.min(viewportWidth / BOARD_WIDTH, viewportHeight / BOARD_HEIGHT);
+      const boardDisplayWidth = BOARD_WIDTH * renderScale;
+      const boardDisplayHeight = BOARD_HEIGHT * renderScale;
+      const offsetX = (viewportWidth - boardDisplayWidth) / 2;
+      const offsetY = (viewportHeight - boardDisplayHeight) / 2;
+      const qrWidthCells = Math.ceil(280 / renderScale / CELL_SIZE);
+      const qrHeightCells = Math.ceil(250 / renderScale / CELL_SIZE);
 
-      canvas.width = Math.floor(canvasWidth * pixelRatio);
-      canvas.height = Math.floor(canvasHeight * pixelRatio);
-      canvas.style.width = `${canvasWidth}px`;
-      canvas.style.height = `${canvasHeight}px`;
-
-      const context = canvas.getContext("2d");
-      context?.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+      canvas.width = Math.floor(viewportWidth * pixelRatio);
+      canvas.height = Math.floor(viewportHeight * pixelRatio);
+      canvas.style.width = `${viewportWidth}px`;
+      canvas.style.height = `${viewportHeight}px`;
 
       runtimeRef.current = {
-        canvasWidth,
-        canvasHeight,
-        cols,
-        rows,
+        viewportWidth,
+        viewportHeight,
+        pixelRatio,
+        boardWidth: BOARD_WIDTH,
+        boardHeight: BOARD_HEIGHT,
+        renderScale,
+        offsetX,
+        offsetY,
+        cols: BOARD_COLS,
+        rows: BOARD_ROWS,
         reserved: {
-          x: Math.max(0, cols - qrWidthCells - 2),
-          y: Math.max(0, rows - qrHeightCells - 2),
+          x: Math.max(0, BOARD_COLS - qrWidthCells - 2),
+          y: Math.max(0, BOARD_ROWS - qrHeightCells - 2),
           width: qrWidthCells + 2,
           height: qrHeightCells + 2
         }
       };
 
-      resetBoard(true);
+      if (!gridRef.current || gridRef.current.width !== BOARD_COLS || gridRef.current.height !== BOARD_ROWS) {
+        resetBoard(true, seedKeyRef.current);
+        return;
+      }
+
+      draw();
     }
 
     resizeBoard();
     window.addEventListener("resize", resizeBoard);
 
     return () => window.removeEventListener("resize", resizeBoard);
-  }, [resetBoard]);
+  }, [draw, resetBoard]);
 
   useEffect(() => {
     let animationFrame = 0;
@@ -236,27 +280,33 @@ export function DisplayClient({ submitUrl }: DisplayClientProps) {
 
     function tick(timestamp: number) {
       if (timestamp - lastTick >= tickMsRef.current) {
-        const grid = gridRef.current;
-        const buffer = bufferRef.current;
+        const nowMs = Date.now();
+        const stepCount = Math.max(1, Math.min(8, Math.floor((timestamp - lastTick) / tickMsRef.current)));
+        let grid = gridRef.current;
+        let buffer = bufferRef.current;
 
-        const maturedTexts = pendingTextsRef.current.filter((pendingText) => timestamp - pendingText.startedAt >= INTRO_MS);
+        const maturedTexts = pendingTextsRef.current.filter((pendingText) => nowMs - pendingText.startedAtMs >= INTRO_MS);
         if (grid && maturedTexts.length > 0) {
           for (const pendingText of maturedTexts) {
             stampCells(grid, pendingText.cells, pendingText.x, pendingText.y);
           }
-          pendingTextsRef.current = pendingTextsRef.current.filter((pendingText) => timestamp - pendingText.startedAt < INTRO_MS);
+          pendingTextsRef.current = pendingTextsRef.current.filter((pendingText) => nowMs - pendingText.startedAtMs < INTRO_MS);
         }
 
         if (grid && buffer && !pausedRef.current) {
-          stepGrid(grid, buffer);
-          gridRef.current = buffer;
-          bufferRef.current = grid;
+          for (let step = 0; step < stepCount; step += 1) {
+            stepGrid(grid, buffer);
+            gridRef.current = buffer;
+            bufferRef.current = grid;
+            grid = gridRef.current;
+            buffer = bufferRef.current;
+          }
         }
 
-        draw(timestamp);
-        lastTick = timestamp;
+        draw();
+        lastTick += stepCount * tickMsRef.current;
       } else if (pendingTextsRef.current.length > 0) {
-        draw(timestamp);
+        draw();
       }
 
       animationFrame = requestAnimationFrame(tick);
@@ -284,9 +334,27 @@ export function DisplayClient({ submitUrl }: DisplayClientProps) {
           return;
         }
 
-        for (const submission of payload.submissions ?? []) {
+        const submissions = payload.submissions ?? [];
+
+        if (!hasLoadedInitialSubmissionsRef.current) {
+          for (const submission of submissions) {
+            if (getSubmissionIntroStartMs(submission) <= displayBootedAtMsRef.current) {
+              seenSubmissionIds.current.add(submission.id);
+            } else {
+              queueSubmissionIntro(submission);
+            }
+          }
+
+          hasLoadedInitialSubmissionsRef.current = true;
+          setConnectionNote(null);
+          return;
+        }
+
+        for (const submission of submissions) {
           queueSubmissionIntro(submission);
         }
+
+        setConnectionNote(null);
       } catch {
         setConnectionNote("Live submission feed is offline.");
       }
@@ -330,7 +398,7 @@ export function DisplayClient({ submitUrl }: DisplayClientProps) {
         const control = payload as Partial<DisplayControlPayload>;
 
         if (control.action === "pause" || control.action === "play" || control.action === "reset" || control.action === "seed") {
-          applyControl({ action: control.action });
+          applyControl({ action: control.action, seed: typeof control.seed === "string" ? control.seed : undefined });
         }
 
         if (control.action === "speed" && typeof control.fps === "number") {
@@ -376,4 +444,17 @@ export function DisplayClient({ submitUrl }: DisplayClientProps) {
       {connectionNote ? <div className="display-note">{connectionNote}</div> : null}
     </main>
   );
+}
+
+function createSubmissionSeed(submission: DisplaySubmission): string {
+  return `${submission.id}:${submission.approved_at ?? ""}:${submission.name}`;
+}
+
+function getSubmissionIntroStartMs(submission: DisplaySubmission): number {
+  const timestamp = Date.parse(submission.approved_at ?? "");
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function createControlSeed(prefix: string): string {
+  return `${prefix}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
 }
